@@ -1,15 +1,13 @@
-<!---
-
-This file is used to generate your project datasheet. Please fill in the information below and delete any unused
-sections.
-
-You can also include images in this folder and reference them in the markdown. Each image must be less than
-512 kb in size, and the combined size of all images must be less than 1 MB.
--->
+A Reimplementation of Belle's Move Generator
+============================================
 
 ## How it works
 
-Explain how your project works
+Internally, there is a 256-bit chessboard (4 bits per square), along with a 64-bit square-enable mask.
+
+Each square "transmits" attacks to its neighbour squares, which either propagate attacks along empty squares, or generate their own.
+These attacks are processed by "receivers", which produce a priority level based on opcode and the piece on that square.
+The priority levels go through an arbitration network, which chooses the most promising square, which gets output from the chip.
 
 ## How to test
 
@@ -17,4 +15,4 @@ Explain how to use your project
 
 ## External hardware
 
-List external hardware used in your project (e.g. PMOD, LED display, etc), if any
+Some kind of external processor is needed to drive the move generator.
