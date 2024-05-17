@@ -11,7 +11,7 @@ The priority levels go through an arbitration network, which chooses the most pr
 
 ## How to test
 
-Explain how to use your project
+Use the test suite.
 
 ## External hardware
 

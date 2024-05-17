@@ -103,7 +103,7 @@ module recv (
     input  wire       bpawn_1sq,
     input  wire       bpawn_2sq,
     input  wire       bpawn_cap,
-    output reg  [5:0] priority_,
+    output reg  [2:0] priority_,
     output reg        illegal
 );
 
@@ -116,7 +116,7 @@ wire moved     = |{wpawn_1sq, wpawn_2sq, bpawn_1sq, bpawn_2sq};
 always @* begin
     illegal = 0;
     if (!enable_reg) begin
-        priority_ = 6'h00;
+        priority_ = 3'h0;
     end else if (op == `VICTIM) begin
         illegal = attacked && piece == `KING;
         if (piece == `QUEEN && attacked && color == !wtm)
@@ -156,11 +156,11 @@ endmodule
 
 // Decide the priority for a single square.
 module arb_unit (
-    input  wire [5:0] prio_in,
+    input  wire [2:0] prio_in,
     input  wire [5:0] square_in,
-    input  wire [5:0] priority_,
+    input  wire [2:0] priority_,
     input  wire [5:0] square,
-    output reg  [5:0] prio_out,
+    output reg  [2:0] prio_out,
     output reg  [5:0] square_out
 );
 
@@ -172,21 +172,6 @@ always @* begin
         prio_out = prio_in;
         square_out = square_in;
     end
-    /*casez ({prio_in, priority_})
-        12'b0?????_1?????,
-        12'b00????_01????,
-        12'b000???_001???,
-        12'b0000??_0001??,
-        12'b00000?_00001?,
-        12'b000000_000001: begin
-            prio_out = priority_;
-            square_out = square;
-        end
-        default: begin
-            prio_out = prio_in;
-            square_out = square_in;
-        end
-    endcase*/
 end
 
 endmodule
@@ -194,25 +179,25 @@ endmodule
 
 // Decide the priority for all squares.
 module arb (
-    input wire  [383:0] priority_,
+    input wire  [191:0] priority_,
     output wire [6:0]   data_out
 );
 
-wire [383:0] prio_out;
+wire [191:0] prio_out;
 wire [383:0] square_out;
 
 assign data_out[5:0] = square_out[383:378];
-assign data_out[6] = prio_out[383:378] == 0;
+assign data_out[6] = prio_out[191:189] == 0;
 
 generate
     genvar square;
     for (square = 0; square < 64; square = square + 1) begin:arb
         arb_unit unit (
-            .prio_in(square == 0 ? priority_[5:0] : prio_out[6*(square-1) +: 6]),
+            .prio_in(square == 0 ? priority_[2:0] : prio_out[3*(square-1) +: 3]),
             .square_in(square == 0 ? 6'd0 : square_out[6*(square-1) +: 6]),
-            .priority_(priority_[6*square +: 6]),
+            .priority_(priority_[3*square +: 3]),
             .square(square[5:0]),
-            .prio_out(prio_out[6*square +: 6]),
+            .prio_out(prio_out[3*square +: 3]),
             .square_out(square_out[6*square +: 6])
         );
     end
@@ -269,7 +254,7 @@ wire [63:0] bpawn_1sq;
 wire [63:0] bpawn_2sq;
 wire [63:0] bpawn_cap;
 
-wire [383:0] priority_;
+wire [191:0] priority_;
 wire [63:0] illegal;
 
 wire [63:0] white;
@@ -381,7 +366,7 @@ generate
             .bpawn_1sq((rank < 7) ? bpawn_1sq[square+8] : 1'b0),
             .bpawn_2sq((rank < 6) ? bpawn_2sq[square+16] : 1'b0),
             .bpawn_cap(bpawn_attacks),
-            .priority_(priority_[6*square +: 6]),
+            .priority_(priority_[3*square +: 3]),
             .illegal(illegal[square])
         );
     end
