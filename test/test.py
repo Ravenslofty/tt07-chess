@@ -52,6 +52,12 @@ async def test_project(dut):
         await ClockCycles(dut.clk, 1)
 
     async def tb_reset():
+        dut.ena.value = 1
+        dut.ui_in.value = 0
+        dut.uio_in.value = 0
+        dut.rst_n.value = 0
+        await ClockCycles(dut.clk, 10)
+        dut.rst_n.value = 1
         for square in range(64):
             await set_piece(square, 0xF)
         await enable_all()
