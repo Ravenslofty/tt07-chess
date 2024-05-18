@@ -47,6 +47,10 @@ async def test_project(dut):
         dut.ui_in.value = 0b1010_0000
         await ClockCycles(dut.clk, 1)
 
+    async def enable_friendly():
+        dut.ui_in.value = 0b1000_0000
+        await ClockCycles(dut.clk, 1)
+
     async def tb_reset():
         for square in range(64):
             await set_piece(square, 0xF)
@@ -63,17 +67,14 @@ async def test_project(dut):
                 if dst & 64:
                     break
                 squares.append(dst)
-                aggressors = []
                 while True:
                     await find_aggressor(dst)
                     src = int(dut.uo_out.value)
                     #dut._log.info("src: {}".format(src))
                     if src & 64:
                         break
-                    aggressors.append(src)
                     await set_enable(src, 0)
-                for agg in aggressors:
-                    await set_enable(agg, 1)
+                await enable_friendly()
                 await set_enable(dst, 0)
             await rotate_board()
             #dut._log.info("(rotating)")

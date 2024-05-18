@@ -352,15 +352,18 @@ arb arbitrator (
 // 0b1100____ ________: ENABLE-ALL
 // 0b1011__NN NNNNVVVV: SET-SQUARE, N is the square to set; value to set in data
 // 0b1010____ ________: ROTATE-BOARD
+// 0b1001____ ________: FLIP-COLORS
+// 0b1000____ ________: ENABLE-FRIENDLY
 // 0b0_______ ________: NO-OP
 
 // Nice to have:
 // enable-us
-// invert-colors
 // read-enable
 
 wire [255:0] piece_reg_rotated;
 wire [63:0]  enable_reg_rotated;
+wire [255:0] piece_reg_colorflipped;
+wire [63:0]  friendly_pieces;
 reg  [5:0]   rotated;
 
 generate
@@ -369,6 +372,8 @@ generate
         localparam j = i ^ 63;
         assign piece_reg_rotated[4*i +: 4] = piece_reg[4*j +: 4];
         assign enable_reg_rotated[i] = enable_reg[j];
+        assign piece_reg_colorflipped[4*i +: 4] = piece_reg[4*i +: 4] ^ 4'b1000;
+        assign friendly_pieces[i] = piece_reg[4*i+3] == `US;
     end
 endgenerate
 
@@ -393,8 +398,12 @@ always @(posedge clk) begin
     priority_    <= 0;
 
     if (!rst_n) begin
-        state   <= 0;
-        rotated <= 0;
+        piece_reg  <= ~256'b0;
+        enable_reg <= ~64'b0;
+        op         <= 0;
+        xmit_addr  <= 0;
+        state      <= 0;
+        rotated    <= 0;
     end else begin
         casez (state)
         0: begin
@@ -415,8 +424,10 @@ always @(posedge clk) begin
                 enable_reg <= enable_reg_rotated;
                 rotated    <= ~rotated;
             end
-            4'b100?:
-                /* reserved for expansion if available */;
+            4'b1001:
+                piece_reg <= piece_reg_colorflipped;
+            4'b1000:
+                enable_reg <= enable_reg | friendly_pieces;
             4'b0???:
                 /* NO-OP */;
             endcase
