@@ -537,7 +537,7 @@ always @(posedge clk) begin
             endcase
         end
         1: begin
-            rank_up      <= rank_up + 1;
+            rank_up      <= rank_up + 4;
             southeast_up <= {1'b0, northwest_up[7:1]};
             south_up     <= north_up;
             southwest_up <= {northeast_up[6:0], 1'b0};
@@ -545,12 +545,10 @@ always @(posedge clk) begin
             knight_up    <= {2'b0, knight_out_up[7:2]} | {knight_out_up[5:0], 2'b0} | {1'b0, knight_out_three[7:1]} | {knight_out_three[6:0], 1'b0};
             king_up      <= {1'b0, king_out_up[7:1]}   | {king_out_up[6:0], 1'b0}   | king_out_up;
             pawn_up      <= pawn_out_up;
-            pawn_2sq_up1 <= pawn_2sq_out_up;
-            pawn_2sq_up  <= pawn_2sq_up1;
             priority_    <= priority_out;
-            data_out     <= {data_out[7] | |illegal_up, data_out_next};
-            if (rank_up == 7) begin
-                data_out <= {data_out[7] | |illegal_up, data_out_next ^ {1'b0, rotated}};
+            data_out     <= {data_out[7] | |illegal_one | |illegal_two | |illegal_three | |illegal_up, data_out_next};
+            if (rank_up == 4) begin
+                data_out <= {data_out[7] | |illegal_one | |illegal_two | |illegal_three | |illegal_up, data_out_next ^ {1'b0, rotated}};
                 state    <= 0;
             end
         end
