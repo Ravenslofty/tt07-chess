@@ -346,7 +346,7 @@ stage two (
     .enable_reg(enable_reg[8*rank_plus_one +: 8]),
     .op(op),
     .xmit_addr(xmit_addr),
-    .rank(rank_up+1),
+    .rank(rank_plus_one[2:0]),
     .south_in(north_one),
     .southeast_in({1'b0, northwest_one[7:1]}),
     .southwest_in({northeast_one[6:0], 1'b0}),
