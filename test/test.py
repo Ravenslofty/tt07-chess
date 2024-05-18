@@ -10,6 +10,8 @@ from cocotb.triggers import ClockCycles
 @cocotb.test()
 async def test_project(dut):
 
+    moves = 0
+
     WKNIGHT = 1
     WBISHOP = 2
     WROOK = 3
@@ -121,6 +123,8 @@ async def test_project(dut):
         assert actual == expected
         await set_piece(sq, 0xF)
 
+        moves += len(actual)
+
     dut._log.info("queen on empty board")
 
     for sq in range(128):
@@ -146,6 +150,8 @@ async def test_project(dut):
         print(sq, expected, actual)
         assert actual == expected
         await set_piece(sq, 0xF)
+
+        moves += len(actual)
 
     dut._log.info("rook on empty board")
 
@@ -173,6 +179,8 @@ async def test_project(dut):
         assert actual == expected
         await set_piece(sq, 0xF)
 
+        moves += len(actual)
+
     dut._log.info("bishop on empty board")
 
     for sq in range(128):
@@ -199,6 +207,8 @@ async def test_project(dut):
         assert actual == expected
         await set_piece(sq, 0xF)
 
+        moves += len(actual)
+
     dut._log.info("knight on empty board")
 
     for sq in range(128):
@@ -222,3 +232,7 @@ async def test_project(dut):
         print(sq, expected, actual)
         assert actual == expected
         await set_piece(sq, 0xF)
+
+        moves += len(actual)
+
+    dut._log.info("computed {} moves".format(moves))
