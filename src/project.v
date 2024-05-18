@@ -237,29 +237,31 @@ endmodule
 module arb (
     input  wire [2:0]  priority_in,
     input  wire [5:0]  square_in,
-    input  wire [23:0] priority_up,
+    input  wire [47:0] priority_up,
     input  wire [2:0]  rank_up,
     output wire [2:0]  priority_out,
     output wire [6:0]  data_out
 );
 
-wire [23:0] prio_in = {priority_up};
-wire [23:0] prio_out;
-wire [23:0] rank_in = {8{rank_up}};
-wire [47:0] sq_out;
+wire [47:0] prio_in = {priority_up};
+wire [47:0] prio_out;
+/* verilator lint_off UNUSEDSIGNAL */
+wire [47:0] rank_in = {16{rank_up}}; // not all bits used
+/* verilator lint_on UNUSEDSIGNAL */
+wire [95:0] sq_out;
 
-assign data_out[5:0] = sq_out[47:42];
-assign data_out[6] = prio_out[23:21] == 0;
-assign priority_out = prio_out[23:21];
+assign data_out[5:0] = sq_out[95:90];
+assign data_out[6] = prio_out[47:45] == 0;
+assign priority_out = prio_out[47:45];
 
 generate
     genvar chain;
-    for (chain = 0; chain < 8; chain = chain + 1) begin:arb
+    for (chain = 0; chain < 16; chain = chain + 1) begin:arb
         arb_unit unit (
             .prio_in(chain == 0 ? priority_in : prio_out[3*(chain-1) +: 3]),
             .square_in(chain == 0 ? square_in : sq_out[6*(chain-1) +: 6]),
             .priority_(prio_in[3*chain +: 3]),
-            .square({rank_in[3*chain +: 3], chain[2:0]}),
+            .square({rank_in[3*chain+1 +: 2], chain[3:0]}),
             .prio_out(prio_out[3*chain +: 3]),
             .square_out(sq_out[6*chain +: 6])
         );
@@ -301,14 +303,14 @@ assign uio_out  = 0;
 assign uio_oe   = 0;
 
 reg  [2:0]  rank_up;
-reg  [7:0]  southeast_up, south_up, southwest_up, knight_up1, knight_up, king_up, pawn_up, pawn_2sq_up1, pawn_2sq_up;
+reg  [7:0]  southeast_up, south_up, southwest_up, knight_up1, knight_up, king_up, pawn_up, pawn_2sq_up;
 /* verilator lint_off UNUSEDSIGNAL */
-wire [7:0]  northeast_up, north_up, northwest_up, knight_out_up, king_out_up, pawn_out_up, pawn_2sq_out_up;
+wire [7:0]  northeast_one, north_one, northwest_one, knight_out_one, king_out_one, pawn_out_one, pawn_2sq_out_one;
 /* verilator lint_off UNUSEDSIGNAL */
-wire [23:0] priority_up;
-wire [7:0]  illegal_up;
+wire [23:0] priority_one;
+wire [7:0]  illegal_one;
 
-stage up (
+stage one (
     .piece_reg(piece_reg[32*rank_up +: 32]),
     .enable_reg(enable_reg[8*rank_up +: 8]),
     .op(op),
@@ -320,6 +322,37 @@ stage up (
     .knight_in(knight_up),
     .king_in(king_up),
     .pawn_in(pawn_up),
+    .pawn_2sq_in(8'b0),
+    .north_out(north_one),
+    .northeast_out(northeast_one),
+    .northwest_out(northwest_one),
+    .knight_out(knight_out_one),
+    .king_out(king_out_one),
+    .pawn_out(pawn_out_one),
+    .pawn_2sq_out(pawn_2sq_out_one),
+    .priority_(priority_one),
+    .illegal(illegal_one)
+);
+
+/* verilator lint_off UNUSEDSIGNAL */
+wire [7:0]  northeast_up, north_up, northwest_up, knight_out_up, king_out_up, pawn_out_up, pawn_2sq_out_up;
+/* verilator lint_off UNUSEDSIGNAL */
+wire [23:0] priority_up;
+wire [7:0]  illegal_up;
+wire [5:0]  rank_plus_one = {3'b0, rank_up} + 1;
+
+stage two (
+    .piece_reg(piece_reg[32*rank_plus_one +: 32]),
+    .enable_reg(enable_reg[8*rank_plus_one +: 8]),
+    .op(op),
+    .xmit_addr(xmit_addr),
+    .rank(rank_up+1),
+    .south_in(north_one),
+    .southeast_in({1'b0, northwest_one[7:1]}),
+    .southwest_in({northeast_one[6:0], 1'b0}),
+    .knight_in({2'b0, knight_out_one[7:2]} | {knight_out_one[5:0], 2'b0} | knight_up1),
+    .king_in({1'b0, king_out_one[7:1]} | {king_out_one[6:0], 1'b0} | king_out_one),
+    .pawn_in(pawn_out_one),
     .pawn_2sq_in(pawn_2sq_up),
     .north_out(north_up),
     .northeast_out(northeast_up),
@@ -339,7 +372,7 @@ wire [6:0] data_out_next;
 arb arbitrator (
     .priority_in(priority_),
     .square_in(data_out[5:0]),
-    .priority_up(priority_up),
+    .priority_up({priority_up, priority_one}),
     .rank_up(rank_up),
     .priority_out(priority_out),
     .data_out(data_out_next)
@@ -357,7 +390,6 @@ arb arbitrator (
 // 0b0_______ ________: NO-OP
 
 // Nice to have:
-// enable-us
 // read-enable
 
 wire [255:0] piece_reg_rotated;
@@ -370,10 +402,10 @@ generate
     genvar i;
     for (i = 0; i < 64; i = i + 1) begin
         localparam j = i ^ 63;
-        assign piece_reg_rotated[4*i +: 4] = piece_reg[4*j +: 4];
-        assign enable_reg_rotated[i] = enable_reg[j];
+        assign piece_reg_rotated[4*i +: 4]      = piece_reg[4*j +: 4];
+        assign enable_reg_rotated[i]            = enable_reg[j];
         assign piece_reg_colorflipped[4*i +: 4] = piece_reg[4*i +: 4] ^ 4'b1000;
-        assign friendly_pieces[i] = piece_reg[4*i+3] == `US;
+        assign friendly_pieces[i]               = piece_reg[4*i+3] == `US;
     end
 endgenerate
 
@@ -391,7 +423,6 @@ always @(posedge clk) begin
     knight_up    <= 0;
     king_up      <= 0;
     pawn_up      <= 0;
-    pawn_2sq_up1 <= 0;
     pawn_2sq_up  <= 0;
 
     // arbitrator state
@@ -433,20 +464,19 @@ always @(posedge clk) begin
             endcase
         end
         1: begin
-            rank_up      <= rank_up + 1;
+            rank_up      <= rank_up + 2;
             southeast_up <= {1'b0, northwest_up[7:1]};
             south_up     <= north_up;
             southwest_up <= {northeast_up[6:0], 1'b0};
             knight_up1   <= {1'b0, knight_out_up[7:1]} | {knight_out_up[6:0], 1'b0};
-            knight_up    <= {2'b0, knight_out_up[7:2]} | {knight_out_up[5:0], 2'b0} | knight_up1;
+            knight_up    <= {2'b0, knight_out_up[7:2]} | {knight_out_up[5:0], 2'b0} | {1'b0, knight_out_one[7:1]} | {knight_out_one[6:0], 1'b0};
             king_up      <= {1'b0, king_out_up[7:1]}   | {king_out_up[6:0], 1'b0}   | king_out_up;
             pawn_up      <= pawn_out_up;
-            pawn_2sq_up1 <= pawn_2sq_out_up;
-            pawn_2sq_up  <= pawn_2sq_up1;
+            pawn_2sq_up  <= pawn_2sq_out_up;
             priority_    <= priority_out;
-            data_out     <= {data_out[7] | |illegal_up, data_out_next};
-            if (rank_up == 7) begin
-                data_out <= {data_out[7] | |illegal_up, data_out_next ^ {1'b0, rotated}};
+            data_out     <= {data_out[7] | |illegal_up | |illegal_one, data_out_next};
+            if (rank_up == 6) begin
+                data_out <= {data_out[7] | |illegal_up | |illegal_one, data_out_next ^ {1'b0, rotated}};
                 state    <= 0;
             end
         end

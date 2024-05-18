@@ -21,13 +21,13 @@ async def test_project(dut):
         dut.uio_in.value = (square & 15) << 4
         await ClockCycles(dut.clk, 1)
         dut.ui_in.value = 0b00000000
-        await ClockCycles(dut.clk, 9)
+        await ClockCycles(dut.clk, 5)
 
     async def find_victim():
         dut.ui_in.value = 0b1110_0000
         await ClockCycles(dut.clk, 1)
         dut.ui_in.value = 0b00000000
-        await ClockCycles(dut.clk, 9)
+        await ClockCycles(dut.clk, 5)
 
     async def set_enable(square, value):
         dut.ui_in.value = 0b1101_0000 | (square >> 4)
@@ -69,21 +69,18 @@ async def test_project(dut):
             while True:
                 await find_victim()
                 dst = int(dut.uo_out.value)
-                #dut._log.info("dst: {}".format(dst))
                 if dst & 64:
                     break
                 squares.append(dst)
                 while True:
                     await find_aggressor(dst)
-                    src = int(dut.uo_out.value)
-                    #dut._log.info("src: {}".format(src))
+                    src = int(dut.uo_out.value) 
                     if src & 64:
                         break
                     await set_enable(src, 0)
                 await enable_friendly()
                 await set_enable(dst, 0)
             await rotate_board()
-            #dut._log.info("(rotating)")
 
         return squares
 
@@ -142,8 +139,6 @@ async def test_project(dut):
 
         sq = (sq + (sq & 7)) >> 1
 
-        print(sq, expected)
-
         await enable_all()
         await set_piece(sq, WQUEEN)
         actual = await tb_square_loop()
@@ -169,8 +164,6 @@ async def test_project(dut):
         expected.sort()
 
         sq = (sq + (sq & 7)) >> 1
-
-        print(sq, expected)
 
         await enable_all()
         await set_piece(sq, WROOK)
@@ -198,8 +191,6 @@ async def test_project(dut):
 
         sq = (sq + (sq & 7)) >> 1
 
-        print(sq, expected)
-
         await enable_all()
         await set_piece(sq, WBISHOP)
         actual = await tb_square_loop()
@@ -223,8 +214,6 @@ async def test_project(dut):
         expected.sort()
 
         sq = (sq + (sq & 7)) >> 1
-
-        print(sq, expected)
 
         await enable_all()
         await set_piece(sq, WKNIGHT)
