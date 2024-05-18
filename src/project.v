@@ -237,31 +237,31 @@ endmodule
 module arb (
     input  wire [2:0]  priority_in,
     input  wire [5:0]  square_in,
-    input  wire [47:0] priority_up,
+    input  wire [95:0] priority_up,
     input  wire [2:0]  rank_up,
     output wire [2:0]  priority_out,
     output wire [6:0]  data_out
 );
 
-wire [47:0] prio_in = {priority_up};
-wire [47:0] prio_out;
+wire [95:0] prio_in = {priority_up};
+wire [95:0] prio_out;
 /* verilator lint_off UNUSEDSIGNAL */
-wire [47:0] rank_in = {16{rank_up}}; // not all bits used
+wire [95:0] rank_in = {32{rank_up}}; // not all bits used
 /* verilator lint_on UNUSEDSIGNAL */
-wire [95:0] sq_out;
+wire [191:0] sq_out;
 
-assign data_out[5:0] = sq_out[95:90];
-assign data_out[6] = prio_out[47:45] == 0;
-assign priority_out = prio_out[47:45];
+assign data_out[5:0] = sq_out[191:186];
+assign data_out[6] = prio_out[95:93] == 0;
+assign priority_out = prio_out[95:93];
 
 generate
     genvar chain;
-    for (chain = 0; chain < 16; chain = chain + 1) begin:arb
+    for (chain = 0; chain < 32; chain = chain + 1) begin:arb
         arb_unit unit (
             .prio_in(chain == 0 ? priority_in : prio_out[3*(chain-1) +: 3]),
             .square_in(chain == 0 ? square_in : sq_out[6*(chain-1) +: 6]),
             .priority_(prio_in[3*chain +: 3]),
-            .square({rank_in[3*chain+1 +: 2], chain[3:0]}),
+            .square({rank_in[3*chain+2], chain[4:0]}),
             .prio_out(prio_out[3*chain +: 3]),
             .square_out(sq_out[6*chain +: 6])
         );
@@ -303,7 +303,7 @@ assign uio_out  = 0;
 assign uio_oe   = 0;
 
 reg  [2:0]  rank_up;
-reg  [7:0]  southeast_up, south_up, southwest_up, knight_up1, knight_up, king_up, pawn_up, pawn_2sq_up;
+reg  [7:0]  southeast_up, south_up, southwest_up, knight_up1, knight_up, king_up, pawn_up;
 /* verilator lint_off UNUSEDSIGNAL */
 wire [7:0]  northeast_one, north_one, northwest_one, knight_out_one, king_out_one, pawn_out_one, pawn_2sq_out_one;
 /* verilator lint_off UNUSEDSIGNAL */
@@ -334,12 +334,13 @@ stage one (
     .illegal(illegal_one)
 );
 
-/* verilator lint_off UNUSEDSIGNAL */
-wire [7:0]  northeast_up, north_up, northwest_up, knight_out_up, king_out_up, pawn_out_up, pawn_2sq_out_up;
-/* verilator lint_off UNUSEDSIGNAL */
-wire [23:0] priority_up;
-wire [7:0]  illegal_up;
 wire [5:0]  rank_plus_one = {3'b0, rank_up} + 1;
+/* verilator lint_off UNUSEDSIGNAL */
+wire [7:0]  northeast_two, north_two, northwest_two, knight_out_two, king_out_two, pawn_out_two, pawn_2sq_out_two;
+/* verilator lint_off UNUSEDSIGNAL */
+wire [23:0] priority_two;
+wire [7:0]  illegal_two;
+
 
 stage two (
     .piece_reg(piece_reg[32*rank_plus_one +: 32]),
@@ -353,7 +354,71 @@ stage two (
     .knight_in({2'b0, knight_out_one[7:2]} | {knight_out_one[5:0], 2'b0} | knight_up1),
     .king_in({1'b0, king_out_one[7:1]} | {king_out_one[6:0], 1'b0} | king_out_one),
     .pawn_in(pawn_out_one),
-    .pawn_2sq_in(pawn_2sq_up),
+    .pawn_2sq_in(8'b0),
+    .north_out(north_two),
+    .northeast_out(northeast_two),
+    .northwest_out(northwest_two),
+    .knight_out(knight_out_two),
+    .king_out(king_out_two),
+    .pawn_out(pawn_out_two),
+    .pawn_2sq_out(pawn_2sq_out_two),
+    .priority_(priority_two),
+    .illegal(illegal_two)
+);
+
+wire [5:0]  rank_plus_two = {3'b0, rank_up} + 2;
+/* verilator lint_off UNUSEDSIGNAL */
+wire [7:0]  northeast_three, north_three, northwest_three, knight_out_three, king_out_three, pawn_out_three, pawn_2sq_out_three;
+/* verilator lint_off UNUSEDSIGNAL */
+wire [23:0] priority_three;
+wire [7:0]  illegal_three;
+
+
+stage three (
+    .piece_reg(piece_reg[32*rank_plus_two +: 32]),
+    .enable_reg(enable_reg[8*rank_plus_two +: 8]),
+    .op(op),
+    .xmit_addr(xmit_addr),
+    .rank(rank_plus_two[2:0]),
+    .south_in(north_two),
+    .southeast_in({1'b0, northwest_two[7:1]}),
+    .southwest_in({northeast_two[6:0], 1'b0}),
+    .knight_in({2'b0, knight_out_two[7:2]} | {knight_out_two[5:0], 2'b0} | {1'b0, knight_out_one[7:1]} | {knight_out_one[6:0], 1'b0}),
+    .king_in({1'b0, king_out_two[7:1]} | {king_out_two[6:0], 1'b0} | king_out_two),
+    .pawn_in(pawn_out_two),
+    .pawn_2sq_in(8'b0),
+    .north_out(north_three),
+    .northeast_out(northeast_three),
+    .northwest_out(northwest_three),
+    .knight_out(knight_out_three),
+    .king_out(king_out_three),
+    .pawn_out(pawn_out_three),
+    .pawn_2sq_out(pawn_2sq_out_three),
+    .priority_(priority_three),
+    .illegal(illegal_three)
+);
+
+wire [5:0]  rank_plus_three = {3'b0, rank_up} + 3;
+/* verilator lint_off UNUSEDSIGNAL */
+wire [7:0]  northeast_up, north_up, northwest_up, knight_out_up, king_out_up, pawn_out_up, pawn_2sq_out_up;
+/* verilator lint_off UNUSEDSIGNAL */
+wire [23:0] priority_up;
+wire [7:0]  illegal_up;
+
+
+stage four (
+    .piece_reg(piece_reg[32*rank_plus_three +: 32]),
+    .enable_reg(enable_reg[8*rank_plus_three +: 8]),
+    .op(op),
+    .xmit_addr(xmit_addr),
+    .rank(rank_plus_three[2:0]),
+    .south_in(north_three),
+    .southeast_in({1'b0, northwest_three[7:1]}),
+    .southwest_in({northeast_three[6:0], 1'b0}),
+    .knight_in({2'b0, knight_out_three[7:2]} | {knight_out_three[5:0], 2'b0} | {1'b0, knight_out_two[7:1]} | {knight_out_two[6:0], 1'b0}),
+    .king_in({1'b0, king_out_three[7:1]} | {king_out_three[6:0], 1'b0} | king_out_three),
+    .pawn_in(pawn_out_three),
+    .pawn_2sq_in(pawn_2sq_out_two),
     .north_out(north_up),
     .northeast_out(northeast_up),
     .northwest_out(northwest_up),
@@ -372,7 +437,7 @@ wire [6:0] data_out_next;
 arb arbitrator (
     .priority_in(priority_),
     .square_in(data_out[5:0]),
-    .priority_up({priority_up, priority_one}),
+    .priority_up({priority_up, priority_three, priority_two, priority_one}),
     .rank_up(rank_up),
     .priority_out(priority_out),
     .data_out(data_out_next)
@@ -423,7 +488,6 @@ always @(posedge clk) begin
     knight_up    <= 0;
     king_up      <= 0;
     pawn_up      <= 0;
-    pawn_2sq_up  <= 0;
 
     // arbitrator state
     priority_    <= 0;
@@ -464,19 +528,18 @@ always @(posedge clk) begin
             endcase
         end
         1: begin
-            rank_up      <= rank_up + 2;
+            rank_up      <= rank_up + 4;
             southeast_up <= {1'b0, northwest_up[7:1]};
             south_up     <= north_up;
             southwest_up <= {northeast_up[6:0], 1'b0};
             knight_up1   <= {1'b0, knight_out_up[7:1]} | {knight_out_up[6:0], 1'b0};
-            knight_up    <= {2'b0, knight_out_up[7:2]} | {knight_out_up[5:0], 2'b0} | {1'b0, knight_out_one[7:1]} | {knight_out_one[6:0], 1'b0};
+            knight_up    <= {2'b0, knight_out_up[7:2]} | {knight_out_up[5:0], 2'b0} | {1'b0, knight_out_three[7:1]} | {knight_out_three[6:0], 1'b0};
             king_up      <= {1'b0, king_out_up[7:1]}   | {king_out_up[6:0], 1'b0}   | king_out_up;
             pawn_up      <= pawn_out_up;
-            pawn_2sq_up  <= pawn_2sq_out_up;
             priority_    <= priority_out;
-            data_out     <= {data_out[7] | |illegal_up | |illegal_one, data_out_next};
-            if (rank_up == 6) begin
-                data_out <= {data_out[7] | |illegal_up | |illegal_one, data_out_next ^ {1'b0, rotated}};
+            data_out     <= {data_out[7] | |illegal_up | |illegal_three | |illegal_two | |illegal_one, data_out_next};
+            if (rank_up == 4) begin
+                data_out <= {data_out[7] | |illegal_up | |illegal_three | |illegal_two | |illegal_one, data_out_next ^ {1'b0, rotated}};
                 state    <= 0;
             end
         end

@@ -21,13 +21,13 @@ async def test_project(dut):
         dut.uio_in.value = (square & 15) << 4
         await ClockCycles(dut.clk, 1)
         dut.ui_in.value = 0b00000000
-        await ClockCycles(dut.clk, 5)
+        await ClockCycles(dut.clk, 3)
 
     async def find_victim():
         dut.ui_in.value = 0b1110_0000
         await ClockCycles(dut.clk, 1)
         dut.ui_in.value = 0b00000000
-        await ClockCycles(dut.clk, 5)
+        await ClockCycles(dut.clk, 3)
 
     async def set_enable(square, value):
         dut.ui_in.value = 0b1101_0000 | (square >> 4)
