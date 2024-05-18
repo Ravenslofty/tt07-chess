@@ -15,4 +15,4 @@ Use the test suite.
 
 ## External hardware
 
-Some kind of external processor is needed to drive the move generator.
+The RP2040 microprocessor in the dev board is intended to be used to drive the move generator, as there isn't enough room in the chip to do it itself.

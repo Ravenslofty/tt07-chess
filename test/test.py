@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: © 2024 Tiny Tapeout
 # SPDX-License-Identifier: MIT
 
+from gc import enable
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
@@ -9,76 +10,75 @@ from cocotb.triggers import ClockCycles
 @cocotb.test()
 async def test_project(dut):
 
-    WHITE = 0
-    BLACK = 1
-
     WKNIGHT = 1
     WBISHOP = 2
     WROOK = 3
     WQUEEN = 4
     WKING = 5
 
-    D3 = 19
-    E3 = 20
-    F3 = 21
-    D4 = 27
-    E4 = 28
-    F4 = 29
-    D5 = 35
-    E5 = 36
-    F5 = 37
+    async def find_aggressor(square):
+        dut.ui_in.value = 0b1111_0000 | (square >> 4)
+        dut.uio_in.value = (square & 15) << 4
+        await ClockCycles(dut.clk, 1)
+        dut.ui_in.value = 0b00000000
+        await ClockCycles(dut.clk, 9)
 
-    async def find_aggressor(color, square):
-        dut.ui_in.value = 0b1110_0000 | (color << 4)
-        dut.uio_in.value = square
-        await ClockCycles(dut.clk, 2)
-
-    async def find_victim(color):
-        dut.ui_in.value = 0b1100_0000 | (color << 4)
-        await ClockCycles(dut.clk, 2)
+    async def find_victim():
+        dut.ui_in.value = 0b1110_0000
+        await ClockCycles(dut.clk, 1)
+        dut.ui_in.value = 0b00000000
+        await ClockCycles(dut.clk, 9)
 
     async def set_enable(square, value):
-        dut.ui_in.value = 0b10_000000 | square
-        dut.uio_in.value = value
+        dut.ui_in.value = 0b1101_0000 | (square >> 4)
+        dut.uio_in.value = ((square & 15) << 4) | value
         await ClockCycles(dut.clk, 1)
 
     async def enable_all():
-        dut.ui_in.value = 0b0110_0000
-        await ClockCycles(dut.clk, 1)
-
-    async def enable_color(color):
-        dut.ui_in.value = 0b0100_0000 | (color << 4)
+        dut.ui_in.value = 0b1100_0000
         await ClockCycles(dut.clk, 1)
 
     async def set_piece(square, value):
-        dut.ui_in.value = 0b00_000000 | square
-        dut.uio_in.value = value
+        dut.ui_in.value = 0b1011_0000 | (square >> 4)
+        dut.uio_in.value = ((square & 15) << 4) | value
         await ClockCycles(dut.clk, 1)
 
-    async def tb_no_more_moves():
-        assert dut.uo_out.value == 0x40
+    async def rotate_board():
+        dut.ui_in.value = 0b1010_0000
+        await ClockCycles(dut.clk, 1)
 
-    async def tb_expect_move_white(src, dst):
-        await find_victim(WHITE)
-        assert dut.uo_out.value == dst # victim square
-        await find_aggressor(WHITE, dst)
-        assert dut.uo_out.value == src # aggressor square
-        await set_enable(src, 0)
-        await find_aggressor(WHITE, dst)
-        await tb_no_more_moves()
-        await set_enable(dst, 0)
-        await enable_color(WHITE)
+    async def tb_reset():
+        for square in range(64):
+            await set_piece(square, 0xF)
+        await enable_all()
 
-    async def tb_expect_move_black(src, dst):
-        await find_victim(BLACK)
-        assert dut.uo_out.value == dst # victim square
-        await find_aggressor(BLACK, dst)
-        assert dut.uo_out.value == src # aggressor square
-        await set_enable(src, 0)
-        await find_aggressor(BLACK, dst)
-        await tb_no_more_moves()
-        await set_enable(dst, 0)
-        await enable_color(BLACK)
+    async def tb_square_loop():
+        await enable_all()
+        squares = []
+        for _ in range(2):
+            while True:
+                await find_victim()
+                dst = int(dut.uo_out.value)
+                #dut._log.info("dst: {}".format(dst))
+                if dst & 64:
+                    break
+                squares.append(dst)
+                aggressors = []
+                while True:
+                    await find_aggressor(dst)
+                    src = int(dut.uo_out.value)
+                    #dut._log.info("src: {}".format(src))
+                    if src & 64:
+                        break
+                    aggressors.append(src)
+                    await set_enable(src, 0)
+                for agg in aggressors:
+                    await set_enable(agg, 1)
+                await set_enable(dst, 0)
+            await rotate_board()
+            #dut._log.info("(rotating)")
+
+        return squares
 
     dut._log.info("Start")
 
@@ -92,6 +92,8 @@ async def test_project(dut):
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 1)
     dut.rst_n.value = 1
+
+    await tb_reset()
 
     for sq in range(128):
         if sq & 0x88:
@@ -107,20 +109,12 @@ async def test_project(dut):
 
         sq = (sq + (sq & 7)) >> 1
 
-        print(sq, expected)
-
         await enable_all()
         await set_piece(sq, WKING)
-        for esq in expected:
-            await tb_expect_move_white(sq, esq)
-        await tb_no_more_moves()
-
-        await enable_all()
-        await set_piece(sq, WKING + 8)
-        for esq in expected:
-            await tb_expect_move_black(sq, esq)
-        await tb_no_more_moves()
-
+        actual = await tb_square_loop()
+        actual.sort()
+        print(sq, expected, actual)
+        assert actual == expected
         await set_piece(sq, 0xF)
 
     dut._log.info("queen on empty board")
@@ -145,16 +139,10 @@ async def test_project(dut):
 
         await enable_all()
         await set_piece(sq, WQUEEN)
-        for esq in expected:
-            await tb_expect_move_white(sq, esq)
-        await tb_no_more_moves()
-
-        await enable_all()
-        await set_piece(sq, WQUEEN + 8)
-        for esq in expected:
-            await tb_expect_move_black(sq, esq)
-        await tb_no_more_moves()
-
+        actual = await tb_square_loop()
+        actual.sort()
+        print(sq, expected, actual)
+        assert actual == expected
         await set_piece(sq, 0xF)
 
     dut._log.info("rook on empty board")
@@ -179,16 +167,10 @@ async def test_project(dut):
 
         await enable_all()
         await set_piece(sq, WROOK)
-        for esq in expected:
-            await tb_expect_move_white(sq, esq)
-        await tb_no_more_moves()
-
-        await enable_all()
-        await set_piece(sq, WROOK + 8)
-        for esq in expected:
-            await tb_expect_move_black(sq, esq)
-        await tb_no_more_moves()
-
+        actual = await tb_square_loop()
+        actual.sort()
+        print(sq, expected, actual)
+        assert actual == expected
         await set_piece(sq, 0xF)
 
     dut._log.info("bishop on empty board")
@@ -213,16 +195,10 @@ async def test_project(dut):
 
         await enable_all()
         await set_piece(sq, WBISHOP)
-        for esq in expected:
-            await tb_expect_move_white(sq, esq)
-        await tb_no_more_moves()
-
-        await enable_all()
-        await set_piece(sq, WBISHOP + 8)
-        for esq in expected:
-            await tb_expect_move_black(sq, esq)
-        await tb_no_more_moves()
-
+        actual = await tb_square_loop()
+        actual.sort()
+        print(sq, expected, actual)
+        assert actual == expected
         await set_piece(sq, 0xF)
 
     dut._log.info("knight on empty board")
@@ -245,14 +221,8 @@ async def test_project(dut):
 
         await enable_all()
         await set_piece(sq, WKNIGHT)
-        for esq in expected:
-            await tb_expect_move_white(sq, esq)
-        await tb_no_more_moves()
-
-        await enable_all()
-        await set_piece(sq, WKNIGHT + 8)
-        for esq in expected:
-            await tb_expect_move_black(sq, esq)
-        await tb_no_more_moves()
-
+        actual = await tb_square_loop()
+        actual.sort()
+        print(sq, expected, actual)
+        assert actual == expected
         await set_piece(sq, 0xF)
