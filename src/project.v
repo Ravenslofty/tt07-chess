@@ -431,7 +431,7 @@ always @(posedge clk) begin
             4'b0110:
                 state <= 3;
             4'b0101:
-                data_out <= piece_reg[4*({addr[1:0], data_in[7:4]} ^ rotated) +: 4];
+                data_out <= {4'b0, piece_reg[4*({addr[1:0], data_in[7:4]} ^ rotated) +: 4]};
             4'b0100:
                 /* reserved for future expansion */;
             4'b00??:
