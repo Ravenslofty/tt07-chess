@@ -377,6 +377,21 @@ always @(posedge clk) begin
     // output state
     data_out     <= 0;
 
+    // move generator state
+    rank_up      <= 0;
+    southeast_up <= 0;
+    south_up     <= 0;
+    southwest_up <= 0;
+    knight_up1   <= 0;
+    knight_up    <= 0;
+    king_up      <= 0;
+    pawn_up      <= 0;
+    pawn_2sq_up1 <= 0;
+    pawn_2sq_up  <= 0;
+
+    // arbitrator state
+    priority_    <= 0;
+
     if (!rst_n) begin
         state   <= 0;
         rotated <= 0;
@@ -388,20 +403,6 @@ always @(posedge clk) begin
                 op <= addr[4];
                 xmit_addr <= ({addr[1:0], data_in[7:4]}) ^ rotated;
                 state <= 1;
-                // move generator state
-                rank_up      <= 0;
-                southeast_up <= 0;
-                south_up     <= 0;
-                southwest_up <= 0;
-                knight_up1   <= 0;
-                knight_up    <= 0;
-                king_up      <= 0;
-                pawn_up      <= 0;
-                pawn_2sq_up1 <= 0;
-                pawn_2sq_up  <= 0;
-
-                // arbitrator state
-                priority_    <= 0;
             end
             4'b1101:
                 enable_reg[{addr[1:0], data_in[7:4]} ^ rotated] <= data_in[0];
