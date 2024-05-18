@@ -23,13 +23,13 @@ async def test_project(dut):
         dut.uio_in.value = (square & 15) << 4
         await ClockCycles(dut.clk, 1)
         dut.ui_in.value = 0b00000000
-        await ClockCycles(dut.clk, 3)
+        await ClockCycles(dut.clk, 9)
 
     async def find_victim():
         dut.ui_in.value = 0b1110_0000
         await ClockCycles(dut.clk, 1)
         dut.ui_in.value = 0b00000000
-        await ClockCycles(dut.clk, 3)
+        await ClockCycles(dut.clk, 9)
 
     async def set_enable(square, value):
         dut.ui_in.value = 0b1101_0000 | (square >> 4)
@@ -92,12 +92,6 @@ async def test_project(dut):
     cocotb.start_soon(clock.start())
 
     dut._log.info("king on empty board")
-    dut.ena.value = 1
-    dut.ui_in.value = 0
-    dut.uio_in.value = 0
-    dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 1)
-    dut.rst_n.value = 1
 
     await tb_reset()
 
