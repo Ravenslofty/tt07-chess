@@ -7,7 +7,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
 
 
-@cocotb.test()
+#@cocotb.test()
 async def test_project(dut):
 
     moves = 0
@@ -23,13 +23,13 @@ async def test_project(dut):
         dut.uio_in.value = (square & 15) << 4
         await ClockCycles(dut.clk, 1)
         dut.ui_in.value = 0b00000000
-        await ClockCycles(dut.clk, 3)
+        await ClockCycles(dut.clk, 1)
 
     async def find_victim():
         dut.ui_in.value = 0b1110_0000
         await ClockCycles(dut.clk, 1)
         dut.ui_in.value = 0b00000000
-        await ClockCycles(dut.clk, 3)
+        await ClockCycles(dut.clk, 1)
 
     async def set_enable(square, value):
         dut.ui_in.value = 0b1101_0000 | (square >> 4)
@@ -60,29 +60,24 @@ async def test_project(dut):
         dut.rst_n.value = 0
         await ClockCycles(dut.clk, 10)
         dut.rst_n.value = 1
-        for square in range(64):
-            await set_piece(square, 0xF)
-        await enable_all()
 
     async def tb_square_loop():
         await enable_all()
         squares = []
-        for _ in range(2):
+        while True:
+            await find_victim()
+            dst = int(dut.uo_out.value)
+            if dst & 64:
+                break
+            squares.append(dst)
             while True:
-                await find_victim()
-                dst = int(dut.uo_out.value)
-                if dst & 64:
+                await find_aggressor(dst)
+                src = int(dut.uo_out.value) 
+                if src & 64:
                     break
-                squares.append(dst)
-                while True:
-                    await find_aggressor(dst)
-                    src = int(dut.uo_out.value) 
-                    if src & 64:
-                        break
-                    await set_enable(src, 0)
-                await enable_friendly()
-                await set_enable(dst, 0)
-            await rotate_board()
+                await set_enable(src, 0)
+            await enable_friendly()
+            await set_enable(dst, 0)
 
         return squares
 
@@ -115,7 +110,6 @@ async def test_project(dut):
 
         sq = (sq + (sq & 7)) >> 1
 
-        await enable_all()
         await set_piece(sq, WKING)
         actual = await tb_square_loop()
         actual.sort()
@@ -143,7 +137,6 @@ async def test_project(dut):
 
         sq = (sq + (sq & 7)) >> 1
 
-        await enable_all()
         await set_piece(sq, WQUEEN)
         actual = await tb_square_loop()
         actual.sort()
@@ -171,7 +164,6 @@ async def test_project(dut):
 
         sq = (sq + (sq & 7)) >> 1
 
-        await enable_all()
         await set_piece(sq, WROOK)
         actual = await tb_square_loop()
         actual.sort()
@@ -199,7 +191,6 @@ async def test_project(dut):
 
         sq = (sq + (sq & 7)) >> 1
 
-        await enable_all()
         await set_piece(sq, WBISHOP)
         actual = await tb_square_loop()
         actual.sort()
@@ -225,7 +216,6 @@ async def test_project(dut):
 
         sq = (sq + (sq & 7)) >> 1
 
-        await enable_all()
         await set_piece(sq, WKNIGHT)
         actual = await tb_square_loop()
         actual.sort()
@@ -236,3 +226,140 @@ async def test_project(dut):
         moves += len(actual)
 
     dut._log.info("computed {} moves".format(moves))
+
+@cocotb.test()
+async def kiwipete(dut):
+
+    moves = 0
+
+    WPAWN = 0
+    WKNIGHT = 1
+    WBISHOP = 2
+    WROOK = 3
+    WQUEEN = 4
+    WKING = 5
+    BPAWN = 8
+    BKNIGHT = 9
+    BBISHOP = 10
+    BROOK = 11
+    BQUEEN = 12
+    BKING = 13
+    EMPTY = 15
+
+    async def find_aggressor(square):
+        dut.ui_in.value = 0b1111_0000 | (square >> 4)
+        dut.uio_in.value = (square & 15) << 4
+        await ClockCycles(dut.clk, 1)
+        dut.ui_in.value = 0b00000000
+        await ClockCycles(dut.clk, 3)
+
+    async def find_victim():
+        dut.ui_in.value = 0b1110_0000
+        await ClockCycles(dut.clk, 1)
+        dut.ui_in.value = 0b00000000
+        await ClockCycles(dut.clk, 3)
+
+    async def set_enable(square, value):
+        dut.ui_in.value = 0b1101_0000 | (square >> 4)
+        dut.uio_in.value = ((square & 15) << 4) | value
+        await ClockCycles(dut.clk, 1)
+
+    async def enable_all():
+        dut.ui_in.value = 0b1100_0000
+        await ClockCycles(dut.clk, 1)
+
+    async def set_piece(square, value):
+        dut.ui_in.value = 0b1011_0000 | (square >> 4)
+        dut.uio_in.value = ((square & 15) << 4) | value
+        await ClockCycles(dut.clk, 1)
+
+    async def rotate_board(pawn_inhibit):
+        dut.ui_in.value = 0b1010_0000 
+        dut.uio_in.value = pawn_inhibit
+        await ClockCycles(dut.clk, 1)
+
+    async def enable_friendly():
+        dut.ui_in.value = 0b1000_0000
+        await ClockCycles(dut.clk, 1)
+
+    async def tb_reset():
+        dut.ena.value = 1
+        dut.ui_in.value = 0
+        dut.uio_in.value = 0
+        dut.rst_n.value = 0
+        await ClockCycles(dut.clk, 10)
+        dut.rst_n.value = 1
+
+    async def tb_square_loop():
+        await enable_all()
+        squares = []
+        while True:
+            await find_victim()
+            dst = int(dut.uo_out.value)
+            assert not (dst & 128)
+            if dst & 64:
+                break
+            print("dst: {}{}".format(chr(ord('a')+(dst%8)), chr(ord('1')+(dst//8))))
+            while True:
+                await find_aggressor(dst)
+                src = int(dut.uo_out.value)
+                assert not (src & 128)
+                if src & 64:
+                    break
+                print("  src: {}{}".format(chr(ord('a')+(src%8)), chr(ord('1')+(src//8))))
+                squares.append((src, dst))
+                #assert (src, dst) != (8, 1)
+                await set_enable(src, 0)
+            await enable_friendly()
+            await set_enable(dst, 0)
+        return squares
+
+    dut._log.info("Start")
+
+    clock = Clock(dut.clk, 1, units="ns")
+    cocotb.start_soon(clock.start())
+    dut.ena.value = 1
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
+    dut.rst_n.value = 0
+    await ClockCycles(dut.clk, 1)
+    dut.rst_n.value = 1
+
+    await set_piece(0,  WROOK)
+    await set_piece(4,  WKING)
+    await set_piece(7,  WROOK)
+    await set_piece(8,  WPAWN)
+    await set_piece(9,  WPAWN)
+    await set_piece(10, WPAWN)
+    await set_piece(11, WBISHOP)
+    await set_piece(12, WBISHOP)
+    await set_piece(13, WPAWN)
+    await set_piece(14, WPAWN)
+    await set_piece(15, WPAWN)
+    await set_piece(18, WKNIGHT)
+    await set_piece(21, WQUEEN)
+    await set_piece(23, BPAWN)
+    await set_piece(25, BPAWN)
+    await set_piece(28, WPAWN)
+    await set_piece(35, WPAWN)
+    await set_piece(36, WKNIGHT)
+    await set_piece(40, BBISHOP)
+    await set_piece(41, BKNIGHT)
+    await set_piece(44, BPAWN)
+    await set_piece(45, BKNIGHT)
+    await set_piece(46, BPAWN)
+    await set_piece(48, BPAWN)
+    await set_piece(50, BPAWN)
+    await set_piece(51, BPAWN)
+    await set_piece(52, BQUEEN)
+    await set_piece(53, BPAWN)
+    await set_piece(54, BBISHOP)
+    await set_piece(56, BROOK)
+    await set_piece(60, BKING)
+    await set_piece(63, BROOK)
+
+    actual = await tb_square_loop()
+
+    actual.sort()
+    print(actual)
+    print(len(actual))
