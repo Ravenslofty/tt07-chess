@@ -16,7 +16,7 @@ set ::env(PL_TARGET_DENSITY) 0.71
 
 # CLOCK_PERIOD - Increase this in case you are getting setup time violations.
 # The value is in nanoseconds, so 20ns == 50MHz.
-set ::env(CLOCK_PERIOD) "30"
+set ::env(CLOCK_PERIOD) "100"
 
 # Hold slack margin - Increase them in case you are getting hold violations.
 set ::env(PL_RESIZER_HOLD_SLACK_MARGIN) 0.1
@@ -30,7 +30,7 @@ set ::env(LINTER_INCLUDE_PDK_MODELS) 1
 # https://tinytapeout.com/faq/#how-can-i-map-an-additional-external-clock-to-one-of-the-gpios
 set ::env(CLOCK_PORT) {clk}
 
-set ::env(SYNTH_STRATEGY) "AREA 2"
+set ::env(SYNTH_STRATEGY) "DELAY 4"
 
 # Configuration docs: https://openlane.readthedocs.io/en/latest/reference/configuration.html
 
