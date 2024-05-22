@@ -7,7 +7,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
 
 
-#@cocotb.test()
+@cocotb.test()
 async def test_project(dut):
 
     moves = 0
@@ -27,6 +27,7 @@ async def test_project(dut):
 
     async def find_victim():
         dut.ui_in.value = 0b1110_0000
+        dut.uio_in.value = 0
         await ClockCycles(dut.clk, 1)
         dut.ui_in.value = 0b00000000
         await ClockCycles(dut.clk, 1)
@@ -255,6 +256,7 @@ async def kiwipete(dut):
 
     async def find_victim():
         dut.ui_in.value = 0b1110_0000
+        dut.uio_in.value = 0
         await ClockCycles(dut.clk, 1)
         dut.ui_in.value = 0b00000000
         await ClockCycles(dut.clk, 1)

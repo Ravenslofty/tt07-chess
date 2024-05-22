@@ -422,7 +422,8 @@ always @(posedge clk) begin
         0: begin
             casez (addr[7:4])
             4'b111?: begin
-                op <= addr[4];
+                op        <= addr[4];
+                wtm       <= data_in[0];
                 xmit_addr <= ({addr[1:0], data_in[7:4]});
             end
             4'b1101:
