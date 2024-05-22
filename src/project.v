@@ -66,12 +66,12 @@ wire empty = (op == `VICTIM || ~xmit_addr) && piece == `EMPTY;
 
 assign knight = (op == `AGGRESSOR && xmit_addr) || (op == `VICTIM && color == wtm && piece == `KNIGHT);
 assign king = (op == `AGGRESSOR && xmit_addr) || (op == `VICTIM && color == wtm && piece == `KING);
-assign wpawn_1sq = (op == `AGGRESSOR && xmit_addr) || (op == `VICTIM && color == `WHITE && piece == `PAWN);
-assign wpawn_2sq = wpawn_1sq && RANK_IS_1;
-assign wpawn_cap = wpawn_1sq;
-assign bpawn_1sq = (op == `AGGRESSOR && xmit_addr) || (op == `VICTIM && color == `BLACK && piece == `PAWN);
-assign bpawn_2sq = bpawn_1sq && RANK_IS_6;
-assign bpawn_cap = bpawn_1sq;
+assign wpawn_1sq = (op == `AGGRESSOR && xmit_addr && piece == `EMPTY) || (op == `VICTIM && color == `WHITE && piece == `PAWN);
+assign wpawn_2sq = 1'b0; //wpawn_1sq && RANK_IS_1;
+assign wpawn_cap = (op == `VICTIM && color == `WHITE && piece == `PAWN) || (op == `AGGRESSOR && xmit_addr && color == `WHITE && piece != `EMPTY);
+assign bpawn_1sq = (op == `AGGRESSOR && xmit_addr && piece == `EMPTY) || (op == `VICTIM && color == `BLACK && piece == `PAWN);
+assign bpawn_2sq = 1'b0; //bpawn_1sq && RANK_IS_6;
+assign bpawn_cap = (op == `VICTIM && color == `BLACK && piece == `PAWN) || (op == `AGGRESSOR && xmit_addr && color == `BLACK && piece != `EMPTY);
 
 // If there is an empty piece, attacks propagate through, otherwise it depends on the piece.
 assign north_out = empty ? south_in : manhattan;
@@ -110,7 +110,7 @@ module recv (
 wire [2:0] piece = piece_reg[2:0];
 wire color = piece_reg[3];
 
-wire attacked  = |{manhattan, diagonal, knight, king, wpawn_cap, bpawn_cap};
+wire attacked  = |{manhattan, diagonal, knight, king, wpawn_cap && color == `BLACK, bpawn_cap && color == `WHITE};
 wire moved     = |{wpawn_1sq, wpawn_2sq, bpawn_1sq, bpawn_2sq};
 
 always @* begin
@@ -134,7 +134,7 @@ always @* begin
         else
             priority_ = 0;
     end else begin
-        if (piece == `PAWN && ((wtm == `WHITE && |{wpawn_cap, wpawn_1sq, wpawn_2sq}) || (wtm == `BLACK && |{bpawn_cap, bpawn_1sq, bpawn_2sq})))
+        if (piece == `PAWN && ((wtm == `WHITE && |{bpawn_cap, bpawn_1sq, bpawn_2sq}) || (wtm == `BLACK && |{wpawn_cap, wpawn_1sq, wpawn_2sq})))
             priority_ = 6;
         else if (piece == `KNIGHT && knight && color == wtm)
             priority_ = 5;

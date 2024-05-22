@@ -251,13 +251,13 @@ async def kiwipete(dut):
         dut.uio_in.value = (square & 15) << 4
         await ClockCycles(dut.clk, 1)
         dut.ui_in.value = 0b00000000
-        await ClockCycles(dut.clk, 3)
+        await ClockCycles(dut.clk, 1)
 
     async def find_victim():
         dut.ui_in.value = 0b1110_0000
         await ClockCycles(dut.clk, 1)
         dut.ui_in.value = 0b00000000
-        await ClockCycles(dut.clk, 3)
+        await ClockCycles(dut.clk, 1)
 
     async def set_enable(square, value):
         dut.ui_in.value = 0b1101_0000 | (square >> 4)
@@ -308,7 +308,6 @@ async def kiwipete(dut):
                     break
                 print("  src: {}{}".format(chr(ord('a')+(src%8)), chr(ord('1')+(src//8))))
                 squares.append((src, dst))
-                #assert (src, dst) != (8, 1)
                 await set_enable(src, 0)
             await enable_friendly()
             await set_enable(dst, 0)
@@ -322,7 +321,7 @@ async def kiwipete(dut):
     dut.ui_in.value = 0
     dut.uio_in.value = 0
     dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 1)
+    await ClockCycles(dut.clk, 10)
     dut.rst_n.value = 1
 
     await set_piece(0,  WROOK)
@@ -360,6 +359,8 @@ async def kiwipete(dut):
 
     actual = await tb_square_loop()
 
-    actual.sort()
+    #actual.sort()
     print(actual)
     print(len(actual))
+
+    assert actual == [(12, 40), (21, 45), (14, 23), (21, 23), (35, 44), (36, 46), (36, 51), (36, 53), (18, 1), (0, 1), (11, 2), (0, 2), (18, 3), (12, 3), (0, 3), (4, 3), (12, 5), (7, 5), (4, 5), (7, 6), (8, 16), (9, 17), (36, 19), (12, 19), (21, 19), (11, 20), (21, 20), (14, 22), (21, 22), (18, 24), (36, 26), (12, 26), (11, 29), (21, 29), (36, 30), (21, 30), (25, 33), (18, 33), (12, 33), (21, 37), (11, 38), (21, 39), (36, 42), (35, 43), (11, 47)]
