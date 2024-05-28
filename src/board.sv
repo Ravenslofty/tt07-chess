@@ -16,8 +16,6 @@ module board (
     input  wire       wtm,
     input  wire [3:0] write_bus,
     input  wire [5:0] ss1,
-    input  wire [5:0] ss2,
-    input  wire       ss2_en,
 
     output wire [6:0] data_out,
     output wire       illegal
@@ -137,7 +135,6 @@ generate
             .wtm(wtm),
             .write_bus(write_bus),
             .ss1(ss1 == SQUARE),
-            .ss2(ss2 == SQUARE && ss2_en),
 
             .north_in(north_in),
             .east_in(east_in),

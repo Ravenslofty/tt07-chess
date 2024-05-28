@@ -9,7 +9,6 @@ from cocotb.triggers import ClockCycles
 
 @cocotb.test()
 async def test_project(dut):
-
     moves = 0
 
     WKNIGHT = 1
@@ -18,56 +17,108 @@ async def test_project(dut):
     WQUEEN = 4
     WKING = 5
 
-    async def find_aggressor(square):
-        dut.ui_in.value  = 0b1111_0000 | (square >> 4)
-        dut.uio_in.value = (square & 15) << 4
+    async def cs_start():
+        dut.cs_n.value = 0
+
+    async def cs_finish():
+        dut.cs_n.value = 1
+        dut.sck.value = 0
+        dut.sdi.value = 0
         await ClockCycles(dut.clk, 1)
-        dut.ui_in.value  = 0b00000000
-        dut.uio_in.value = 0b00000000
-        await ClockCycles(dut.clk, 2)
+
+    async def spi_transfer_nocs(sdi):
+        assert sdi <= 0xF
+        sdo = 0
+        dut.sck.value = 0
+        dut.sdi.value = sdi
+        await ClockCycles(dut.clk, 1)
+        dut.sck.value = 1
+        await ClockCycles(dut.clk, 1)
+        sdo = int(dut.sdo.value)
+        #print("SPI transfer: in {:04b}, out {:04b}".format(sdi, sdo))
+        return sdo
+
+    async def spi_transfer(sdi):
+        await cs_start()
+        sdo = await spi_transfer_nocs(sdi)
+        await cs_finish()
+        return sdo
+
+    async def find_aggressor(sq=None):
+        #print("FIND AGGRESSOR [{}]".format(sq))
+        await cs_start()
+        if sq is not None:
+            await spi_transfer_nocs(0b0011)
+            await spi_transfer_nocs(sq >> 4)
+            await spi_transfer_nocs(sq & 0xF)
+        await spi_transfer_nocs(0b1110)
+        await spi_transfer_nocs(0b0000)
+        sq = (await spi_transfer_nocs(0b0000)) << 4
+        sq |= (await spi_transfer_nocs(0b0000))
+        await cs_finish()
+        return sq
 
     async def find_victim():
-        dut.ui_in.value  = 0b1110_0000
-        dut.uio_in.value = 0b00000000
-        await ClockCycles(dut.clk, 1)
-        dut.ui_in.value  = 0b00000000
-        dut.uio_in.value = 0b00000000
-        await ClockCycles(dut.clk, 2)
+        #print("FIND VICTIM")
+        await cs_start()
+        await spi_transfer_nocs(0b1111)
+        await spi_transfer_nocs(0b0000)
+        sq = (await spi_transfer_nocs(0b0000)) << 4
+        sq |= (await spi_transfer_nocs(0b0000))
+        await cs_finish()
+        return sq
 
     async def enable_all():
-        dut.ui_in.value = 0b1100_0000
-        dut.uio_in.value = 0b00000000
-        await ClockCycles(dut.clk, 1)
+        #print("ENABLE ALL")
+        await spi_transfer(0b1100)
 
-    async def set_piece(square, value):
-        dut.ui_in.value = 0b1011_0000 | (square >> 4)
-        dut.uio_in.value = ((square & 15) << 4) | value
-        await ClockCycles(dut.clk, 1)
+    async def set_piece(sq, value):
+        await spi_transfer(0b0011)
+        await spi_transfer(sq >> 4)
+        await spi_transfer(sq & 0xF)
+        await spi_transfer(0b1011)
+        await spi_transfer(value)
 
-    async def enable_friendly(square):
-        dut.ui_in.value = 0b1000_0000 | (square >> 4)
-        dut.uio_in.value = ((square & 15) << 4)
-        await ClockCycles(dut.clk, 1)
+    async def disable_aggressor(sq=None):
+        #print("DISABLE AGGRESSOR [{}]".format(sq))
+        if sq is not None:
+            await spi_transfer(0b0011)
+            await spi_transfer(sq >> 4)
+            await spi_transfer(sq & 0xF)
+        await spi_transfer(0b1001)
+
+    async def enable_friendly(sq=None):
+        if sq is not None:
+            await spi_transfer(0b0011)
+            await spi_transfer(sq >> 4)
+            await spi_transfer(sq & 0xF)
+        await spi_transfer(0b1000)
+
+    async def white_to_move():
+        await spi_transfer(0b0001)
+        await spi_transfer(0b0100)
+
+    async def black_to_move():
+        await spi_transfer(0b0001)
+        await spi_transfer(0b0101)
 
     async def tb_square_loop():
         await enable_all()
         squares = []
         while True:
-            await find_victim()
-            dst = int(dut.uo_out.value)
+            dst = await find_victim()
             assert not (dst & 128)
             if dst & 64:
                 break
             #print("dst: {}{}".format(chr(ord('a')+(dst%8)), chr(ord('1')+(dst//8))))
             while True:
-                await find_aggressor(dst)
-                src = int(dut.uo_out.value)
+                src = await find_aggressor()
                 assert not (src & 128)
                 if src & 64:
                     break
                 #print("  src: {}{}".format(chr(ord('a')+(src%8)), chr(ord('1')+(src//8))))
                 squares.append(dst)
-            await enable_friendly(dst)
+            await enable_friendly()
         return squares
 
     dut._log.info("Start")
@@ -75,11 +126,13 @@ async def test_project(dut):
     clock = Clock(dut.clk, 1, units="ns")
     cocotb.start_soon(clock.start())
     dut.ena.value = 1
-    dut.ui_in.value = 0
-    dut.uio_in.value = 0
+    dut.sck.value = 0
+    dut.cs_n.value = 1
+    dut.sdi.value = 0
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 10)
     dut.rst_n.value = 1
+    await ClockCycles(dut.clk, 1)
     
     dut._log.info("king on empty board")
 
@@ -98,10 +151,18 @@ async def test_project(dut):
         sq = (sq + (sq & 7)) >> 1
 
         await set_piece(sq, WKING)
+        await white_to_move()
         actual = await tb_square_loop()
         actual.sort()
         print(sq, expected, actual)
         assert actual == expected
+        await set_piece(sq, WKING + 8)
+        await black_to_move()
+        actual = await tb_square_loop()
+        actual.sort()
+        print(sq, expected, actual)
+        assert actual == expected
+
         await set_piece(sq, 0xF)
 
         moves += len(actual)
@@ -125,6 +186,13 @@ async def test_project(dut):
         sq = (sq + (sq & 7)) >> 1
 
         await set_piece(sq, WQUEEN)
+        await white_to_move()
+        actual = await tb_square_loop()
+        actual.sort()
+        print(sq, expected, actual)
+        assert actual == expected
+        await set_piece(sq, WQUEEN + 8)
+        await black_to_move()
         actual = await tb_square_loop()
         actual.sort()
         print(sq, expected, actual)
@@ -152,6 +220,13 @@ async def test_project(dut):
         sq = (sq + (sq & 7)) >> 1
 
         await set_piece(sq, WROOK)
+        await white_to_move()
+        actual = await tb_square_loop()
+        actual.sort()
+        print(sq, expected, actual)
+        assert actual == expected
+        await set_piece(sq, WROOK + 8)
+        await black_to_move()
         actual = await tb_square_loop()
         actual.sort()
         print(sq, expected, actual)
@@ -179,6 +254,13 @@ async def test_project(dut):
         sq = (sq + (sq & 7)) >> 1
 
         await set_piece(sq, WBISHOP)
+        await white_to_move()
+        actual = await tb_square_loop()
+        actual.sort()
+        print(sq, expected, actual)
+        assert actual == expected
+        await set_piece(sq, WBISHOP + 8)
+        await black_to_move()
         actual = await tb_square_loop()
         actual.sort()
         print(sq, expected, actual)
@@ -204,6 +286,13 @@ async def test_project(dut):
         sq = (sq + (sq & 7)) >> 1
 
         await set_piece(sq, WKNIGHT)
+        await white_to_move()
+        actual = await tb_square_loop()
+        actual.sort()
+        print(sq, expected, actual)
+        assert actual == expected
+        await set_piece(sq, WKNIGHT + 8)
+        await black_to_move()
         actual = await tb_square_loop()
         actual.sort()
         print(sq, expected, actual)
@@ -233,66 +322,121 @@ async def kiwipete(dut):
     BKING = 13
     EMPTY = 15
 
-    async def find_aggressor(square):
-        dut.ui_in.value = 0b1111_0000 | (square >> 4)
-        dut.uio_in.value = (square & 15) << 4
+    async def cs_start():
+        dut.cs_n.value = 0
+
+    async def cs_finish():
+        dut.cs_n.value = 1
+        dut.sck.value = 0
+        dut.sdi.value = 0
         await ClockCycles(dut.clk, 1)
-        dut.ui_in.value = 0b00000000
-        await ClockCycles(dut.clk, 2)
+
+    async def spi_transfer_nocs(sdi):
+        assert sdi <= 0xF
+        sdo = 0
+        dut.sck.value = 0
+        dut.sdi.value = sdi
+        await ClockCycles(dut.clk, 1)
+        dut.sck.value = 1
+        await ClockCycles(dut.clk, 1)
+        sdo = int(dut.sdo.value)
+        #print("SPI transfer: in {:04b}, out {:04b}".format(sdi, sdo))
+        return sdo
+
+    async def spi_transfer(sdi):
+        await cs_start()
+        sdo = await spi_transfer_nocs(sdi)
+        await cs_finish()
+        return sdo
+
+    async def find_aggressor(sq=None):
+        #print("FIND AGGRESSOR [{}]".format(sq))
+        await cs_start()
+        if sq is not None:
+            await spi_transfer_nocs(0b0011)
+            await spi_transfer_nocs(sq >> 4)
+            await spi_transfer_nocs(sq & 0xF)
+        await spi_transfer_nocs(0b1110)
+        await spi_transfer_nocs(0b0000)
+        sq = (await spi_transfer_nocs(0b0000)) << 4
+        sq |= (await spi_transfer_nocs(0b0000))
+        await cs_finish()
+        return sq
 
     async def find_victim():
-        dut.ui_in.value = 0b1110_0000
-        dut.uio_in.value = 0
-        await ClockCycles(dut.clk, 1)
-        dut.ui_in.value = 0b00000000
-        await ClockCycles(dut.clk, 2)
+        #print("FIND VICTIM")
+        await cs_start()
+        await spi_transfer_nocs(0b1111)
+        await spi_transfer_nocs(0b0000)
+        sq = (await spi_transfer_nocs(0b0000)) << 4
+        sq |= (await spi_transfer_nocs(0b0000))
+        await cs_finish()
+        return sq
 
     async def enable_all():
-        dut.ui_in.value = 0b1100_0000
-        await ClockCycles(dut.clk, 1)
+        #print("ENABLE ALL")
+        await spi_transfer(0b1100)
 
-    async def set_piece(square, value):
-        dut.ui_in.value = 0b1011_0000 | (square >> 4)
-        dut.uio_in.value = ((square & 15) << 4) | value
-        await ClockCycles(dut.clk, 1)
+    async def set_piece(sq, value):
+        await spi_transfer(0b0011)
+        await spi_transfer(sq >> 4)
+        await spi_transfer(sq & 0xF)
+        await spi_transfer(0b1011)
+        await spi_transfer(value)
 
-    async def enable_friendly(square):
-        dut.ui_in.value = 0b1000_0000 | (square >> 4)
-        dut.uio_in.value = ((square & 15) << 4)
-        await ClockCycles(dut.clk, 1)
+    async def disable_aggressor(sq=None):
+        #print("DISABLE AGGRESSOR [{}]".format(sq))
+        if sq is not None:
+            await spi_transfer(0b0011)
+            await spi_transfer(sq >> 4)
+            await spi_transfer(sq & 0xF)
+        await spi_transfer(0b1001)
+
+    async def enable_friendly(sq=None):
+        if sq is not None:
+            await spi_transfer(0b0011)
+            await spi_transfer(sq >> 4)
+            await spi_transfer(sq & 0xF)
+        await spi_transfer(0b1000)
+
+    async def white_to_move():
+        await spi_transfer(0b0001)
+        await spi_transfer(0b0100)
+
+    async def black_to_move():
+        await spi_transfer(0b0001)
+        await spi_transfer(0b0101)
 
     async def tb_square_loop():
         await enable_all()
         squares = []
         while True:
-            await find_victim()
-            dst = int(dut.uo_out.value)
+            dst = await find_victim()
             assert not (dst & 128)
             if dst & 64:
                 break
             print("dst: {}{}".format(chr(ord('a')+(dst%8)), chr(ord('1')+(dst//8))))
             while True:
-                await find_aggressor(dst)
-                src = int(dut.uo_out.value)
+                src = await find_aggressor()
                 assert not (src & 128)
                 if src & 64:
                     break
+                assert src != 5
                 print("  src: {}{}".format(chr(ord('a')+(src%8)), chr(ord('1')+(src//8))))
-                assert dst != 40 or src == 12
                 squares.append((src, dst))
-            await enable_friendly(dst)
+            await enable_friendly()
         return squares
-
-    dut._log.info("Start")
 
     clock = Clock(dut.clk, 1, units="ns")
     cocotb.start_soon(clock.start())
     dut.ena.value = 1
-    dut.ui_in.value = 0
-    dut.uio_in.value = 0
+    dut.sck.value = 0
+    dut.cs_n.value = 1
+    dut.sdi.value = 0
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 10)
     dut.rst_n.value = 1
+    await ClockCycles(dut.clk, 1)
 
     await set_piece(0,  WROOK)
     await set_piece(4,  WKING)
@@ -326,6 +470,9 @@ async def kiwipete(dut):
     await set_piece(56, BROOK)
     await set_piece(60, BKING)
     await set_piece(63, BROOK)
+    await white_to_move()
+
+    dut._log.info("Start")
 
     actual = await tb_square_loop()
 

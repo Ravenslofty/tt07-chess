@@ -21,7 +21,7 @@ endmodule
 
 // Decide the priority for all squares.
 module arb (
-    input wire  [191:0] priority_,
+    input  wire [191:0] priority_,
     output wire [6:0]   data_out
 );
 
