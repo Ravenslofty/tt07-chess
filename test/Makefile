@@ -5,7 +5,11 @@
 SIM ?= icarus
 TOPLEVEL_LANG ?= verilog
 SRC_DIR = $(PWD)/../src
-PROJECT_SOURCES = project.v
+PROJECT_SOURCES = arb.v board.v spi_rxtx.v square.v top.v
+
+ifeq ($(SIM),verilator)
+EXTRA_ARGS += --trace --trace-structs
+endif
 
 ifneq ($(GATES),yes)
 
