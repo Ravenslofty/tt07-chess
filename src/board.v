@@ -139,7 +139,6 @@ generate
             .ss1(ss1 == SQUARE),
             .ss2(ss2 == SQUARE && ss2_en),
 
-            // Despite what Icarus Verilog may think, these signals *are* in-bounds.
             .north_in(north_in),
             .east_in(east_in),
             .south_in(south_in),
