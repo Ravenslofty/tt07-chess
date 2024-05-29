@@ -22,6 +22,10 @@ set ::env(CLOCK_PERIOD) "20"
 set ::env(PL_RESIZER_HOLD_SLACK_MARGIN) 0.1
 set ::env(GLB_RESIZER_HOLD_SLACK_MARGIN) 0.05
 
+# Slew slack margin
+set ::env(PL_RESIZER_MAX_SLEW_MARGIN) 1.0
+set ::env(GLB_RESIZER_MAX_SLEW_MARGIN) 1.0
+
 # RUN_LINTER, LINTER_INCLUDE_PDK_MODELS - Disabling the linter is not recommended!
 set ::env(RUN_LINTER) 1
 set ::env(LINTER_INCLUDE_PDK_MODELS) 1
@@ -30,7 +34,7 @@ set ::env(LINTER_INCLUDE_PDK_MODELS) 1
 # https://tinytapeout.com/faq/#how-can-i-map-an-additional-external-clock-to-one-of-the-gpios
 set ::env(CLOCK_PORT) {clk}
 
-set ::env(SYNTH_STRATEGY) "AREA 3"
+set ::env(SYNTH_STRATEGY) "AREA 1"
 
 # Configuration docs: https://openlane.readthedocs.io/en/latest/reference/configuration.html
 
