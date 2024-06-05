@@ -68,7 +68,7 @@ wire [2:0] piece;
 wire       color;
 
 mem_4x1 #(
-    .STYLE(1)
+    .STYLE(2)
 ) mem (
     .clk(clk),
     .rst_n(rst_n),
