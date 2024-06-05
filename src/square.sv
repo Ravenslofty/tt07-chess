@@ -64,8 +64,19 @@ parameter SQUARE = 0;
 // bit 0: knight
 // bit 1: color
 
-reg  [2:0] piece;
-reg        color;
+wire [2:0] piece;
+wire       color;
+
+mem_4x1 #(
+    .STYLE(1)
+) mem (
+    .clk(clk),
+    .rst_n(rst_n),
+    .wr_data(write_bus),
+    .wr_en(state_mode == `SM_W && ss1),
+    .rd_data({color, piece})
+);
+
 reg        mask;
 
 wire [4:0] decoded_piece = {
@@ -187,14 +198,9 @@ reg xmit_manhattan, xmit_diagonal, xmit_king, xmit_knight;
 
 always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        piece <= ~3'b0;
-        color <= 0;
         mask  <= ~0;
     end else begin
         casez (state_mode)
-        `SM_W:
-            if (ss1)
-                {color, piece} <= write_bus;
         `SM_DAAA:
             if (!ss1 && color == wtm)
                 mask <= 0;

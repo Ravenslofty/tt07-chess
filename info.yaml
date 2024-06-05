@@ -17,6 +17,7 @@ project:
   source_files:
     - "arb.sv"
     - "board.sv"
+    - "primitives.sv"
     - "spi_rxtx.sv"
     - "square.sv"
     - "top.sv"
