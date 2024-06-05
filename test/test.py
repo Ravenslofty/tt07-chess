@@ -79,6 +79,10 @@ async def test_project(dut):
         await spi_transfer(0b1011)
         await spi_transfer(value)
 
+    async def clear_board():
+        for square in range(64):
+            await set_piece(square, 0xF)
+
     async def disable_aggressor(sq=None):
         #print("DISABLE AGGRESSOR [{}]".format(sq))
         if sq is not None:
@@ -134,6 +138,8 @@ async def test_project(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
     
+    await clear_board()
+
     dut._log.info("king on empty board")
 
     for sq in range(128):
@@ -384,6 +390,10 @@ async def kiwipete(dut):
         await spi_transfer(0b1011)
         await spi_transfer(value)
 
+    async def clear_board():
+        for square in range(64):
+            await set_piece(square, 0xF)
+
     async def disable_aggressor(sq=None):
         #print("DISABLE AGGRESSOR [{}]".format(sq))
         if sq is not None:
@@ -437,6 +447,8 @@ async def kiwipete(dut):
     await ClockCycles(dut.clk, 10)
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
+
+    await clear_board()
 
     await set_piece(0,  WROOK)
     await set_piece(4,  WKING)

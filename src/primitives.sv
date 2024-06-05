@@ -57,6 +57,7 @@ generate
         assign rd_data = data;
     end
     // STYLE = 2: semi-manual (scan flops with built-in reset)
+    //
     else if (STYLE == 2) begin
 `ifndef SYNTHESIS
         reg [3:0] data;
@@ -70,10 +71,10 @@ generate
         wire [3:0] data;
         genvar i;
         for (i = 0; i < 4; i = i + 1) begin
-            sky130_fd_sc_hd__sdfrtp_1 ff (
+            sky130_fd_sc_hd__sdfstp_1 ff (
                 .CLK(clk),
                 .D(data[i]),
-                .RESET_B(rst_n),
+                .SET_B(rst_n),
                 .SCD(wr_data[i]),
                 .SCE(wr_en),
                 .Q(data[i])
@@ -100,9 +101,7 @@ generate
 `endif
         reg [3:0] data;
         always_latch begin
-            if (!rst_n)
-                data <= ~4'b0;
-            else if (gated_clk)
+            if (gated_clk)
                 data <= wr_data;
         end
         assign rd_data = data;
